@@ -1,0 +1,399 @@
+---
+title: "Customer Analysis"
+author: "Nguyen Pham"
+date: 04/28/2022
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# An Introduction
+
+- Customer segmentation is an essential tool in customer relationship management, enabling businesses to market effectively to their customers. Segmentation also allows businesses to channel their resources appropriately. 
+- High value customers who purchase frequently and generate more revenue usually belong in a segment which is allocated a higher level of marketing spend.
+- Understanding the importance of customer behaviors, I am interested in exploring a in customer behavior by age, education, marital status, children, and income, and want to see the different behavior of different groups of customers. 
+- By measuring their behavior, company can analyze which customer segment that they should focus on, or market the product to the particular segment.
+
+
+# Packages Required
+
+```{r}
+library(knitr)           # for html publication
+library(tidyverse)       # for data tidying
+library(dplyr)           # for data manipulation
+library(ggplot2)         # for data visualization
+library(scales)
+options(scipen = 999)    #for scientific number
+options(repos=structure(c(CRAN="https:theclosest_mirror_to_yourlocation.com")))
+```
+
+# Import Data
+
+- My data set is from Kaggle: (https://www.kaggle.com/datasets/imakash3011/customer-personality-analysis). This data from the kaggle public datasets. It was collected by Akash Patel and its target to perform clustering to summarize customer segments. The dataset for this project is provided by Dr.Omar Romero-Hernandez.
+```{r}
+#Import data from kaggle
+marketing<- read.csv("marketing_campaign.csv", sep="\t")       
+```
+To ensure the data is clean and clear, I will check for any missing data and removed all the missing data to ready to be used for analysis.
+
+```{r}
+sum(is.na(marketing))            #Return number of missing data values
+marketing <- na.omit(marketing)   # Remover the observations with missing data
+
+sum(is.na(marketing))           #Check for any missing data values
+```
+Now the data is clean and all missing data is removed, so let take a loot at the data and change some variable names to make sure the reader can understand.
+This data has 2240 values, 29 columns, and 2216 rows.
+
+```{r}
+#take a quick look at data
+glimpse(marketing)
+
+#changing some columns and variable names
+marketing <- marketing %>% rename(wines = MntWines,
+                                  fruits = MntFruits,
+                                  meat = MntMeatProducts,
+                                  fish = MntFishProducts,
+                                  sweets = MntSweetProducts,
+                                  gold = MntGoldProds,
+                                  web_purchases = NumWebPurchases,
+                                  catalog_purchases = NumCatalogPurchases,
+                                  store_purchases = NumStorePurchases,
+                                  discount_purchases = NumDealsPurchases,
+                                  first_promotion = AcceptedCmp1,
+                                  second_promotion = AcceptedCmp2,
+                                  third_promotion = AcceptedCmp3,
+                                  fourth_promotion = AcceptedCmp4,
+                                  fifth_promotion = AcceptedCmp5,
+                                  last_promotion = Response)
+```
+I changed some variables names and column name to help reader can easy to understand what they are. 
+Because the data has 2240 values, so I will check for duplicated values and removed it before analysis.
+```{r}
+marketing <- marketing %>% distinct() #removed duplicated values
+sum(duplicated(marketing))            #checking for any duplicated values after removed
+```
+## Data preparation
+- Next step, I will mutate some column that I need to analyse and use in the future.
+```{r}
+# Create new children, age, and spend columns into marketing data.
+marketing <- marketing %>% mutate(children = Kidhome+ Teenhome) %>% mutate(Age = 2022 - Year_Birth) %>% mutate(spend = wines + fruits + meat + fish + sweets + gold)
+
+# create new columns names promotion
+marketing <- marketing %>% mutate(promotion = first_promotion + second_promotion + third_promotion + fourth_promotion + fifth_promotion)
+
+```
+- In the data, there are some strange names and some variable very similar, I will change theirs names and make the data clean and clear to read.
+```{r}
+# change variable names 
+marketing$Marital_Status[marketing$Marital_Status == "Together"] <- "Married"
+
+marketing$Marital_Status[marketing$Marital_Status != "Married"] <- "Single"
+
+marketing$Education[marketing$Education == "2n Cycle"] <- "Master"
+
+marketing$Education[marketing$Education == "Basic"] <- "UnderGraduation"
+
+```
+## Data Visualzation
+- For me the data is messy to read and there are a lot of different number.
+Therefor, I will graph and visualization the information of age, spend, income, and children,by graph the information to make clearer and easier to see.
+```{r}
+# Age distribution
+marketing %>% ggplot(aes(x=Age))+geom_density(color = "blue", adjust = 0.5)+labs(title=  "Age Distribution")
+```
+
+- As we can see in the graph, the age of customer in the range between 25 years old to 90 years old. There are little customer have around 120 years old. The reason I do not filter their ages because it show very good in the density graph,so I think I do not need to filter them out. However, after go deeper in details I will filter if needed.
+
+
+### Income distribution
+ 
+- There is an value that larger than the others values, so I will filter the variable to make the graph look better. 
+
+```{r}
+#find the maximum of income
+marketing %>% summarise(max(Income))
+
+marketing %>%filter(Income <= 150000) %>% ggplot(aes(x= Income), fill = "yellow") +geom_histogram(bins = 50, fill = "yellow", color = "blue")+labs(title = "Income Distribution")
+
+```
+
+- Before graph the income distribution, I will find the max and the min of the income to check for any outlier in this data.
+- In this income distribution, the range of income is between 10,000 to 95,000, and there is one person have income 666,666. It is a lot more than the others income, so I will filter that to make my graph have better look. 
+
+### Spend distribution
+
+```{r}
+marketing %>% group_by(Education) %>% summarise(mean_spend = mean(spend)) %>% ggplot(aes(x= mean_spend, y = fct_reorder(Education, mean_spend))) +geom_col(fill = "light blue")+ labs(title = "Education Spending Average", x = "Average Spend", y = "Education")
+                                                                                   
+```
+
+- Next, I will have a column graph to show the spending base on Education. This graph have order from the group have the highest spending to the lowest spending. Group of PhD has the highest spending and group of Under graduation has the lowest spending.
+
+### Number of children
+```{r}
+marketing %>% group_by(Marital_Status)%>% ggplot(aes(x = children, fill = Marital_Status))+geom_bar(position= "dodge")+ labs(title= "Number of Children in Marital Status")
+```
+
+- This graph is distributed the number of children facet by marital status, and the number of people have one child is the highest.
+
+## Data Exploration
+
+```{r}
+# Income vs spend
+marketing %>%  ggplot(aes(x = Income, y =spend, color = Marital_Status)) +geom_point(alpha =0.3)+scale_x_log10()+labs(title="Income vs Spend")
+```
+
+- To answer the question "Are income and spending affected each other?". The answer is Yes, because the graph show that people who are higher income, spend more than people who are lower income. Color by marital status to answer the question " Is it also affected by marital status?". According to the graph, it is not much affected by marital status.
+
+```{r}
+# mutate income level column  
+marketing <- marketing %>% 
+  mutate(Income_level = case_when(
+  Income < 30000                    ~ "low",
+  Income >= 30000 & Income <= 60000 ~ "medium",
+  Income > 60000                    ~ "high"), 
+  Income_level = factor(Income_level, levels = c("low", "medium", "high"), ordered = T))
+
+g1 <- marketing%>% group_by(Income_level) %>% 
+  summarise(mean_wine = mean(wines)) %>%  
+  ggplot(aes(x=Income_level, y = mean_wine))+geom_col(fill = "red")+ ylim(0,600)+
+  labs(title = "Average wine speding", y = "Average wine spend")
+
+g2 <- marketing  %>%group_by(Income_level) %>% 
+  summarise(mean_fruits = mean(fruits)) %>%  
+  ggplot(aes(x=Income_level, y = mean_fruits))+geom_col(fill = "orange")+ylim(0,600)+
+  labs(title = "Average fruits spending", y = "Average fruits spend")
+
+g3 <- marketing  %>%group_by(Income_level) %>% 
+  summarise(mean_meat = mean(meat)) %>%  
+  ggplot(aes(x=Income_level, y = mean_meat))+geom_col(fill="light green")+ylim(0,600)+
+  labs(title = "Average meat spending", y = "Average meat spend")
+
+g4 <- marketing  %>%group_by(Income_level) %>% 
+  summarise(mean_fish = mean(fish)) %>%  
+  ggplot(aes(x=Income_level, y = mean_fish))+geom_col(fill = "purple")+ylim(0,600)+
+  labs(title = "Average fish spending", y = "Average fish spend")
+
+g5 <- marketing  %>%group_by(Income_level) %>% 
+  summarise(mean_sweets = mean(sweets)) %>%  
+  ggplot(aes(x=Income_level, y = mean_sweets))+geom_col(fill = "yellow")+ylim(0,600)+
+  labs(title = "Average sweets spending", y = "Average sweets spend")
+
+g6 <- marketing  %>%group_by(Income_level) %>% 
+  summarise(mean_gold = mean(gold)) %>% 
+  ggplot(aes(x=Income_level, y = mean_gold))+geom_col(fill = "pink")+ylim(0,600)+
+  labs(title = "Average gold spending", y = "Average gold spend")
+
+install.packages("gridExtra") #install new package
+library(gridExtra)            #library grid Extra 
+
+# Arrange multiple plot in the same page
+grid.arrange(g1,g2,g3,g4,g5,g6, nrow = 2)
+```
+
+Now, I will divide income into three group: Low, Medium, and High income. In each graph, show the average of different things: Wines, Fruits, Meat, Fish, Sweets, and Gold. The conclusion is people have high income spend most on wine and meat. Especially,the average spend in wine is a lot higher than the other products.
+
+## income vs promotion
+
+```{r}
+marketing %>%filter(promotion != 0) %>%  ggplot(aes(x= promotion, fill = Income_level))+geom_bar(position = "dodge")+labs(title = "Comparing Income and Promotion")
+```
+
+-The group who have high income also use more coupon or promotion than the others. It because their more they spend, the more they have point or promotion for their membership for next shop. Maybe this is the reason why the graph show to us that high income group use more promotion than the other groups.
+
+
+```{r}
+# Graph of income lever and children
+marketing %>%  group_by(Income_level) %>% 
+  ggplot(aes(x = children, color = Income_level))+geom_density()
+
+#Which group of different income spend more on sweets products?
+
+med_inc_have_children <- marketing %>% 
+  filter(Income_level == "medium", children !=0) %>%
+  mutate(mean_sweets = mean(sweets)) %>% 
+  ggplot(aes(x= children, y = mean_sweets))+geom_col(fill= "yellow")+ ylim(0, 7000)+
+  labs(title = "Medium income and sweet products", subtitle = "group of medium income and have children spend on sweet products", y = "average spend of sweets")+
+  theme(plot.subtitle = element_text(size=6),plot.title = element_text(size= 12) ,axis.text = element_text(size = 8), axis.title.y = element_text(size = 8), axis.title.x = element_text(size = 10))
+
+high_inc_have_children <- marketing %>% 
+  filter(Income_level == "high", children !=0) %>%
+  mutate(mean_sweets = mean(sweets)) %>% 
+  ggplot(aes(x= children, y = mean_sweets))+geom_col(fill = "orange")+ylim(0,7000)+
+  labs(title = "High income and sweet products", subtitle = "group of hight income and have children spend on sweet products", y = "average spend of sweets")+
+  theme(plot.subtitle = element_text(size=6),plot.title = element_text(size= 12) ,axis.text = element_text(size = 8), axis.title.y = element_text(size = 8), axis.title.x = element_text(size = 10))
+
+low_inc_have_children <- marketing %>% 
+  filter(Income_level == "low", children !=0) %>%
+  mutate(mean_sweets = mean(sweets)) %>% 
+  ggplot(aes(x= children, y = mean_sweets))+geom_col(fill = "blue")+ylim(0,7000)+
+  labs(title = "Low income and sweet products", subtitle = "group of low income and have children spend on sweet products", y = "average spend of sweets")+
+  theme(plot.subtitle = element_text(size=6),plot.title = element_text(size= 12) ,axis.text = element_text(size = 8), axis.title.y = element_text(size = 8), axis.title.x = element_text(size = 10))
+                                                     
+                                                            
+grid.arrange(med_inc_have_children, high_inc_have_children, low_inc_have_children, nrow =2)
+
+
+```
+
+- The first graph show the number of children base on income lever. The group of medium income have more children than the other groups. So in next graph, I want to see what group of different income who have children spend more on sweets product?
+- So, the result that although the medium group have more children, the high income group is the one who spend more on sweets.
+
+```{r}
+# Graph income level and average of wines base on children
+c1 <-  marketing %>%filter(children != 0) %>%
+  group_by(children) %>%  mutate(mean_wines = mean(wines)) %>% 
+  ggplot(aes(x = children, y = mean_wines))+geom_col(fill = "red")+ylim(0,80000)+
+  labs(title = "Spend of wines", y = "Average spend of wines")+
+  theme(axis.text = element_text(size = 10), axis.title.y = element_text(size = 6), axis.title.x = element_text(size = 10))+theme_classic()
+
+#Graph the income level and average of fruits base on children
+c2 <- marketing %>%filter(children != 0) %>%
+  group_by(children) %>%  mutate(mean_fruits = mean(fruits)) %>% 
+  ggplot(aes(x = children, y = mean_fruits))+geom_col(fill = "blue")+ylim(0,80000)+
+  labs(title = "Spend of fruits", y = "Average spend of fruits")+
+  theme(axis.text = element_text(size = 10), axis.title.y = element_text(size = 6), axis.title.x = element_text(size = 10))+theme_classic()
+
+#Graph income lever and average of meat base on children
+c3 <- marketing %>%filter(children != 0) %>%
+  group_by(children) %>%  mutate(mean_meat = mean(meat)) %>% 
+  ggplot(aes(x = children, y = mean_meat))+geom_col(fill = "orange")+ylim(0,80000)+
+  labs(title = "Spend of meat", y = "Average spend of meat")+
+  theme(axis.text = element_text(size = 10), axis.title.y = element_text(size = 6), axis.title.x = element_text(size = 10))+theme_classic()
+
+#Graph income level, and average of fish base on children
+c4 <- marketing %>%filter(children != 0) %>%
+  group_by(children) %>%  mutate(mean_fish = mean(fish)) %>% 
+  ggplot(aes(x = children, y = mean_fish))+geom_col(fill = "purple")+ylim(0,80000)+
+  labs(title = "Spend of fish", y = "Average spend of fish")+
+  theme(axis.text = element_text(size = 10), axis.title.y = element_text(size = 6), axis.title.x = element_text(size = 10))+theme_classic()
+
+# Grpah income level, and average of sweets base on children  
+c5 <- marketing %>%filter(children != 0) %>%
+  group_by(children) %>%  mutate(mean_sweets = mean(sweets)) %>% 
+  ggplot(aes(x = children, y = mean_sweets))+
+  geom_col(fill = "navy blue")+ylim(0,80000)+
+  labs(title = "Spend of sweets", y = "Average spend of sweets")+
+  theme(axis.text = element_text(size = 10), axis.title.y = element_text(size = 6), axis.title.x = element_text(size = 10))+ theme_classic()
+
+# Graph income level, and average of gold base on children
+c6 <- marketing %>%filter(children != 0) %>%
+  group_by(children) %>%  mutate(mean_gold = mean(gold)) %>% 
+  ggplot(aes(x = children, y = mean_gold))+
+  geom_col(fill = "light green")+ylim(0,80000)+
+  labs(title = "Spend of gold", y = "Average spend of gold")+
+  theme(axis.text = element_text(size = 10), axis.title.y = element_text(size = 6), axis.title.x = element_text(size = 10))+ theme_classic()
+
+grid.arrange(c1,c2,c3,c4,c5,c6)
+```
+
+
+- The graph of group have children and average products also show the same thing that people spend most on wines and meat. 
+
+
+- After looking the information base on income, I also want to see what if anything change base on the ages. Therefore, next step I will do some more data analyse such as mutate new column, make statement or argument to separate the group of age to find more information to answer my concern.
+- To do this, I mutate new column name Age_level to divide age in to there groups: Young Adults, Middle Ages, and Seniors. 
+```{r}
+#mutate new column age level
+marketing <- marketing %>% 
+  mutate(Age_level = case_when(
+    Age < 35 ~ "Young_Adults",
+    Age >= 35 & Age <60 ~ "Middle_Ages",
+    Age >= 60 ~ "Seniors"),
+    Age_level = factor(Age_level, levels = c("Young_Adults", "Middle_Ages", "Seniors"), ordered = T))
+
+# Graph products base on age level
+g5 <- marketing %>% 
+  ggplot(aes(x= store_purchases, fill = Age_level))+geom_bar()+xlim(0,15)+ylim(0,400)+facet_wrap(~Age_level)+theme_classic()
+
+g6 <- marketing %>% 
+  ggplot(aes(x = web_purchases, fill = Age_level))+geom_bar()+xlim(0,15)+ylim(0,400)+facet_wrap(~Age_level)+theme_classic()
+
+g7 <- marketing %>% 
+  ggplot(aes(x = catalog_purchases, fill = Age_level))+geom_bar()+xlim(0,15)+ylim(0,400)+facet_wrap(~Age_level)+theme_classic()
+
+#arrange different graphs in the same page. 
+grid.arrange(g5,g6,g7)
+```
+
+- The graph show that the middle age group like to go shopping and they also shop by different ways more than other two groups. In this graph, it just show the total spend of individual group by different ways of shopping. I will make another the graph with same information, but in percentage to show better and I also can tell which purchase they like to do more than the other.
+
+- Percentage of Purchases
+```{r}
+#mutate new percentage column for each purchase and calculation.
+m1 <- marketing %>% mutate(total_store = sum(store_purchases)) %>%  group_by(Age_level) %>% mutate(sum_store = sum(store_purchases)) %>% mutate(per_store = sum_store/total_store)
+
+m2 <- marketing %>% mutate(total_web = sum(web_purchases)) %>%  group_by(Age_level) %>% mutate(sum_web = sum(web_purchases)) %>% mutate(per_web = sum_web/total_web)
+
+m3 <- marketing %>% mutate(total_catalog = sum(catalog_purchases)) %>%  group_by(Age_level) %>% mutate(sum_catalog = sum(catalog_purchases)) %>% mutate(per_catalog = sum_catalog/total_catalog)
+                                                                                           #Graph of different ways of purchase by age level                                                     
+g8 <- m1 %>%group_by(Age_level) %>%
+  ggplot(aes(x= Age_level))+geom_bar(aes(y = per_store), stat = "identity", color = "light blue")+scale_y_continuous(labels = scales::percent_format(scale = 1))+labs(title = " Store shopping", y = "Store percentage")
+ 
+
+g9 <- m2 %>%group_by(Age_level) %>%
+  ggplot(aes(x= Age_level))+geom_bar(aes( y = per_web), stat = "identity", color = "orange")+scale_y_continuous(labels = scales::percent_format(scale = 1))+ labs(title = " Web shopping", y = "Web percentage")
+
+g10 <- m3 %>%group_by(Age_level) %>%
+  ggplot(aes(x= Age_level))+geom_bar(aes(y = per_catalog), stat  = "identity", color = " light green")+scale_y_continuous(labels = scales::percent_format(scale = 1))+
+  labs(title = " Catalog shopping", y = "Catalog percentage")
+
+#arrage different graphs in same page.
+grid.arrange(g8,g9,g10)
+```
+
+- In this graph I can say that the middle ages group like to shop in store the most, it is about 85%, and the second is shopping by catalog 79%. The seniors group like to shop by catalog 58%, and in store 25%.The values percentage show in the graph have that high because the sum of each purchase is high and when I calculated, it show up with high percentage number. However, I still can be easy to tell the result by look at this graph by percentage better than the previous graph.
+
+- Age vs spending
+
+```{r}
+g11 <- marketing %>% group_by(Age_level) %>%
+  summarise(mean_wines = mean(wines)) %>%
+  ggplot(aes(x= Age_level, y =mean_wines))+geom_col(fill = "grey")+ylim(0,400)+
+  labs(title = "Average of Wines", y = "Wines Average")
+
+g12 <- marketing %>% group_by(Age_level) %>%
+  summarise(mean_fruits = mean(fruits)) %>%
+  ggplot(aes(x= Age_level, y =mean_fruits))+geom_col(fill = "brown")+ylim(0,50)+
+  labs(title = "Average of Fruits", y = "Fruits Average")
+
+g13 <- marketing %>% group_by(Age_level) %>%
+  summarise(mean_fish = mean(fish)) %>%
+  ggplot(aes(x= Age_level, y =mean_fish))+geom_col(fill = "pink")+ylim(0,50)+
+  labs(title = "Average of Fish", y = "Wines Fish")
+
+g14 <- marketing %>% group_by(Age_level) %>%
+  summarise(mean_meat = mean(meat)) %>%
+  ggplot(aes(x= Age_level, y =mean_meat))+geom_col(fill = "green")
+  labs(title = "Average of Meat", y = "Meat Average")
+
+g15 <- marketing %>% group_by(Age_level) %>%
+  summarise(mean_sweets = mean(sweets)) %>%
+  ggplot(aes(x= Age_level, y =mean_sweets))+geom_col(fill= " yellow")+
+  ylim(0,50)+labs(title = "Average of Sweets", y = "Sweets Average")
+                                                            
+g16 <- marketing %>% group_by(Age_level) %>%
+  summarise(mean_gold = mean(gold)) %>%
+  ggplot(aes(x= Age_level, y =mean_gold))+geom_col(fill = "blue")+ylim(0,50)+
+  labs(title = "Average of Gold", y = "Gold Average")
+
+grid.arrange(g11,g12,g13,g14,g15,g16)
+
+```
+
+- To make sure the values of each graph have the same and it help me easy to compare, so I changes and range the y axis to make the average of products are the same. However, the average of wines and meat are too high, I will keep these two the same and will explain to the reader. 
+- As the result, I can say that people use more wines and meat than other products. The seniors group is spend the highest wine compare to other groups and products. 
+- When divide by age level, the graph of average of gold show better, so there are two group that spend on gold more are Young adults and seniors group. Comparing graph with income level, graph in age level show me the average of gold even higher than other products such as:sweets, fruits and fish.
+
+# Summary
+
+- Base on Income level, the group with high income spend more than the other group and it also do not impact by children or marital status.
+- Base on Age, the group in middle also like to shopping more than other groups.
+- According this data, wines is the product that is highest sale and the group with high income and senior age buy wines more than other groups.
+- When separate group of age level, I can analyze that the group of middle age like to shopping by in store and catalog more than two other groups. In two special products: wines and gold, the seniors and young ages spend more than middles group.
+- In conclusion, the group with high income and over 35 year old spend more. Wines is the product that they spend most.
+
+
